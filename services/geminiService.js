@@ -8,9 +8,9 @@ export const enhanceNoteWithGemini = async (rawContent) => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Analyze the following raw note and return JSON:
-      1. title: catchy file name
-      2. content: cleaned markdown
-      3. tags: 3-5 relevant kebab-case tags
+      1. title: catchy file name (no extension)
+      2. content: cleaned markdown formatting
+      3. tags: 3-5 relevant kebab-case tags starting with #
       Note: ${rawContent}`,
     config: {
       responseMimeType: "application/json",
