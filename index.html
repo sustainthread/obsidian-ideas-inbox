@@ -13,12 +13,16 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
-    <!-- CRITICAL: NO TAILWIND CDN HERE -->
-    
     <style>
-        /* Essential styles only */
+        /* Essential styles for initial load */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html { height: 100%; background: #0a0a0a; color: white; font-family: sans-serif; }
+        body, html { 
+            height: 100%; 
+            background: #0a0a0a; 
+            color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+        }
         #root { height: 100%; }
         
         .loading {
@@ -40,8 +44,33 @@
             animation: spin 1s linear infinite;
         }
         
+        .loading-text {
+            color: #8b5cf6;
+            font-weight: 600;
+            letter-spacing: 2px;
+            font-size: 14px;
+        }
+        
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        
+        /* Error state */
+        .error-screen {
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            color: #ef4444;
         }
     </style>
 </head>
@@ -49,36 +78,131 @@
     <div id="root">
         <div class="loading">
             <div class="spinner"></div>
-            <p>Loading...</p>
+            <div class="loading-text">LOADING APPS...</div>
         </div>
     </div>
     
-    <!-- React and dependencies -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/htm@3.1.1/dist/htm.min.js"></script>
+    <!-- NO external script tags - we'll use ES modules -->
     
-    <!-- Your app -->
-    <script type="module" src="./index.js"></script>
-    
-    <script>
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(function(registration) {
-                        console.log('SW registered: ', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('SW registration failed: ', error);
-                    });
-            });
+    <script type="module">
+        // Main application loader
+        console.log('Starting app initialization...');
+        
+        // Simple retry mechanism
+        async function loadWithRetry(url, retries = 3, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) return response;
+                    throw new Error(`HTTP ${response.status}`);
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    console.log(`Retry ${i + 1} for ${url}`);
+                    await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+                }
+            }
         }
         
-        // Simple error display
-        window.addEventListener('error', function(e) {
-            console.error('Global error:', e.error);
-        });
+        async function initializeApp() {
+            try {
+                console.log('Step 1: Checking required files...');
+                
+                // Check if main files exist
+                const filesToCheck = [
+                    './index.js',
+                    './App.js',
+                    './geminiService.js'
+                ];
+                
+                for (const file of filesToCheck) {
+                    try {
+                        await loadWithRetry(file, 2, 500);
+                        console.log(`✓ ${file} available`);
+                    } catch (error) {
+                        console.error(`✗ ${file} not found:`, error);
+                        throw new Error(`Missing required file: ${file}`);
+                    }
+                }
+                
+                console.log('Step 2: Loading dependencies via ES modules...');
+                
+                // Import via esm.sh which supports CORS
+                const React = await import('https://esm.sh/react@18');
+                const ReactDOM = await import('https://esm.sh/react-dom@18');
+                const htm = await import('https://esm.sh/htm@3.1.1');
+                
+                console.log('Step 3: Loading main app...');
+                
+                // Now load your main app
+                const AppModule = await import('./App.js');
+                
+                if (!AppModule.default) {
+                    throw new Error('App.js must have a default export');
+                }
+                
+                console.log('Step 4: Rendering app...');
+                
+                // Render the app
+                const html = htm.default.bind(React.createElement);
+                ReactDOM.default.render(
+                    html`<${AppModule.default} />`,
+                    document.getElementById('root')
+                );
+                
+                console.log('App rendered successfully!');
+                
+                // Register service worker after app loads
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('./sw.js', { scope: './' })
+                        .then(registration => {
+                            console.log('Service Worker registered:', registration);
+                        })
+                        .catch(error => {
+                            console.warn('Service Worker registration failed:', error);
+                        });
+                }
+                
+            } catch (error) {
+                console.error('App initialization failed:', error);
+                
+                // Show error to user
+                document.getElementById('root').innerHTML = `
+                    <div class="error-screen">
+                        <div class="error-icon">⚠️</div>
+                        <h2>Failed to Load App</h2>
+                        <p style="color: #a3a3a3;">${error.message}</p>
+                        <p style="color: #737373; font-size: 14px; margin-top: 20px;">
+                            Please check:<br>
+                            1. All .js files are deployed<br>
+                            2. Browser supports ES modules<br>
+                            3. Try refreshing the page
+                        </p>
+                        <button onclick="window.location.reload()" 
+                                style="margin-top: 30px; padding: 10px 20px; background: #8b5cf6; border: none; color: white; border-radius: 8px; cursor: pointer;">
+                            Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // Start app initialization
+        window.addEventListener('DOMContentLoaded', initializeApp);
+        
+        // Fallback if DOMContentLoaded already fired
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
     </script>
+    
+    <!-- Fallback for no JavaScript -->
+    <noscript>
+        <div style="padding: 40px; text-align: center; color: white;">
+            <h2>JavaScript Required</h2>
+            <p>This application requires JavaScript to run.</p>
+        </div>
+    </noscript>
 </body>
 </html>
