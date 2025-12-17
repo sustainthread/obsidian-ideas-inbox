@@ -1,38 +1,226 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0a0a">
     <title>Obsidian Idea Inbox</title>
-    <meta name="theme-color" content="#0a0a0a" />
-    <link rel="manifest" href="./manifest.json" />
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5968/5968292.png" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@19",
-        "react-dom": "https://esm.sh/react-dom@19",
-        "react-dom/client": "https://esm.sh/react-dom@19/client",
-        "htm": "https://esm.sh/htm@3.1.1",
-        "lucide-react": "https://esm.sh/lucide-react@0.461.0",
-        "@google/genai": "https://esm.sh/@google/genai@1.34.0"
-      }
-    }
-    </script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then(() => console.log('SW Registered'))
-            .catch(err => console.error('SW Registration Failed', err));
-        });
-      }
-    </script>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Critical CSS for initial render -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            height: 100%;
+            background-color: #0a0a0a;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+        
+        #root {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Loading animation */
+        .loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            gap: 20px;
+        }
+        
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(139, 92, 246, 0.3);
+            border-top-color: #8b5cf6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        .loading-text {
+            color: #8b5cf6;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Tailwind-like utility classes */
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .h-screen { height: 100vh; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .max-w-2xl { max-width: 42rem; }
+        .bg-\[\#0a0a0a\] { background-color: #0a0a0a; }
+        .text-white { color: white; }
+        .overflow-hidden { overflow: hidden; }
+        .relative { position: relative; }
+        .gap-4 { gap: 1rem; }
+        .p-6 { padding: 1.5rem; }
+        .border-t { border-top-width: 1px; }
+        .border-neutral-800 { border-color: #262626; }
+        .bg-black\/60 { background-color: rgba(0, 0, 0, 0.6); }
+        .backdrop-blur-2xl { backdrop-filter: blur(24px); }
+        .z-30 { z-index: 30; }
+        .flex-1 { flex: 1 1 0%; }
+        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+        .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+        .border-b { border-bottom-width: 1px; }
+        .bg-black\/40 { background-color: rgba(0, 0, 0, 0.4); }
+        .backdrop-blur-xl { backdrop-filter: blur(16px); }
+        .justify-between { justify-content: space-between; }
+        .w-10 { width: 2.5rem; }
+        .h-10 { height: 2.5rem; }
+        .bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)); }
+        .from-purple-500 { --tw-gradient-from: #8b5cf6; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgb(139 92 246 / 0)); }
+        .to-indigo-600 { --tw-gradient-to: #4f46e5; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .shadow-purple-900\/20 { box-shadow: 0 10px 15px -3px rgb(88 28 135 / 0.2); }
+        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .font-extrabold { font-weight: 800; }
+        .tracking-tight { letter-spacing: -0.025em; }
+        .uppercase { text-transform: uppercase; }
+        .italic { font-style: italic; }
+        .text-transparent { color: transparent; }
+        .bg-clip-text { -webkit-background-clip: text; background-clip: text; }
+        .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
+        .from-white { --tw-gradient-from: white; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgb(255 255 255 / 0)); }
+        .to-neutral-500 { --tw-gradient-to: #737373; }
+        .p-2\.5 { padding: 0.625rem; }
+        .text-neutral-400 { color: #a3a3a3; }
+        .hover\:text-white:hover { color: white; }
+        .bg-neutral-900 { background-color: #171717; }
+        .rounded-full { border-radius: 9999px; }
+        .border { border-width: 1px; }
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+        .active\:scale-90:active { transform: scale(0.9); }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
-    <script type="module" src="./index.js"></script>
+    <!-- React Mount Point -->
+    <div id="root">
+        <div class="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading Idea Inbox</div>
+        </div>
+    </div>
+
+    <!-- Load ES modules for modern browsers -->
+    <script type="module">
+        // Simple check for module support
+        console.log('Starting module loading...');
+        
+        // Check if all required scripts are available
+        const scriptsToCheck = ['./index.js', './App.js', './geminiService.js'];
+        
+        async function checkScripts() {
+            for (const script of scriptsToCheck) {
+                try {
+                    const response = await fetch(script);
+                    if (!response.ok) {
+                        console.error(`Script not found: ${script}`);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch ${script}:`, error);
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        // Load the main app
+        async function loadApp() {
+            try {
+                console.log('Loading index.js module...');
+                
+                // Import the main module
+                const module = await import('./index.js');
+                console.log('Module loaded successfully:', module);
+                
+                // The index.js should handle rendering
+                // Check if it has a default export or named exports
+                if (module.default) {
+                    console.log('Module has default export');
+                }
+                
+            } catch (error) {
+                console.error('Failed to load module:', error);
+                
+                // Show error to user
+                document.getElementById('root').innerHTML = `
+                    <div class="loading-screen">
+                        <div style="color: #ef4444; text-align: center; max-width: 400px; padding: 20px;">
+                            <h3 style="margin-bottom: 10px;">Failed to load app</h3>
+                            <p style="color: #a3a3a3; font-size: 14px; margin-bottom: 20px;">${error.message}</p>
+                            <p style="color: #737373; font-size: 12px;">Check browser console for details.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Start loading process
+        checkScripts().then(success => {
+            if (success) {
+                loadApp();
+            } else {
+                document.getElementById('root').innerHTML = `
+                    <div class="loading-screen">
+                        <div style="color: #ef4444; text-align: center;">
+                            <h3>Missing required files</h3>
+                            <p style="color: #a3a3a3; font-size: 14px;">Check if all .js files are deployed.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Fallback for older browsers -->
+    <noscript>
+        <div style="padding: 40px; text-align: center; color: white;">
+            <h2>JavaScript Required</h2>
+            <p>This application requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+        </div>
+    </noscript>
 </body>
 </html>
