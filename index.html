@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0a0a0a">
     <title>Obsidian Idea Inbox</title>
     
     <!-- PWA Manifest -->
@@ -14,16 +13,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
-        /* Essential styles for initial load */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body, html { 
-            height: 100%; 
-            background: #0a0a0a; 
-            color: white; 
+        /* Simple loading screen */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #0a0a0a;
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            overflow: hidden;
         }
-        #root { height: 100%; }
+        
+        #root {
+            height: 100%;
+        }
         
         .loading {
             display: flex;
@@ -31,178 +32,191 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
-            gap: 20px;
-            background: #0a0a0a;
+            color: #8b5cf6;
+            text-align: center;
         }
         
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #8b5cf6;
-            border-top-color: transparent;
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(139, 92, 246, 0.3);
+            border-top-color: #8b5cf6;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-        }
-        
-        .loading-text {
-            color: #8b5cf6;
-            font-weight: 600;
-            letter-spacing: 2px;
-            font-size: 14px;
+            margin-bottom: 20px;
         }
         
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
         
-        /* Error state */
         .error-screen {
             padding: 40px;
             text-align: center;
-            max-width: 500px;
-            margin: 0 auto;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 20px;
+            color: white;
         }
         
-        .error-icon {
-            font-size: 48px;
+        .error-screen h2 {
             color: #ef4444;
+        }
+        
+        .retry-button {
+            padding: 12px 24px;
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
+    <!-- React mount point -->
     <div id="root">
         <div class="loading">
             <div class="spinner"></div>
-            <div class="loading-text">LOADING APPS...</div>
+            <h2>Loading Obsidian Idea Inbox...</h2>
+            <p>Please wait while the app loads</p>
         </div>
     </div>
     
-    <!-- NO external script tags - we'll use ES modules -->
-    
+    <!-- Simple, reliable app loader -->
     <script type="module">
-        // Main application loader
-        console.log('Starting app initialization...');
+        console.log('🚀 Starting app loader...');
         
-        // Simple retry mechanism
-        async function loadWithRetry(url, retries = 3, delay = 1000) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url);
-                    if (response.ok) return response;
-                    throw new Error(`HTTP ${response.status}`);
-                } catch (error) {
-                    if (i === retries - 1) throw error;
-                    console.log(`Retry ${i + 1} for ${url}`);
-                    await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
-                }
-            }
-        }
-        
-        async function initializeApp() {
+        async function loadApp() {
             try {
-                console.log('Step 1: Checking required files...');
+                console.log('Step 1: Loading React...');
                 
-                // Check if main files exist
-                const filesToCheck = [
-                    './index.js',
-                    './App.js',
-                    './geminiService.js'
-                ];
-                
-                for (const file of filesToCheck) {
-                    try {
-                        await loadWithRetry(file, 2, 500);
-                        console.log(`✓ ${file} available`);
-                    } catch (error) {
-                        console.error(`✗ ${file} not found:`, error);
-                        throw new Error(`Missing required file: ${file}`);
-                    }
-                }
-                
-                console.log('Step 2: Loading dependencies via ES modules...');
-                
-                // Import via esm.sh which supports CORS
+                // Load React and ReactDOM from esm.sh
                 const React = await import('https://esm.sh/react@18');
-                const ReactDOM = await import('https://esm.sh/react-dom@18');
-                const htm = await import('https://esm.sh/htm@3.1.1');
+                const ReactDOM = await import('https://esm.sh/react-dom@18/client');
                 
-                console.log('Step 3: Loading main app...');
+                console.log('Step 2: Loading App component...');
                 
-                // Now load your main app
-                const AppModule = await import('./App.js');
-                
-                if (!AppModule.default) {
-                    throw new Error('App.js must have a default export');
+                // Load App.js - IMPORTANT: Use .default
+                let AppModule;
+                try {
+                    AppModule = await import('./App.js');
+                } catch (importError) {
+                    console.error('Failed to import App.js:', importError);
+                    throw new Error('App.js not found or has syntax errors');
                 }
                 
-                console.log('Step 4: Rendering app...');
+                // Get the default export
+                const App = AppModule.default;
                 
-                // Render the app
-                const html = htm.default.bind(React.createElement);
-                ReactDOM.default.render(
-                    html`<${AppModule.default} />`,
-                    document.getElementById('root')
-                );
+                if (!App) {
+                    console.error('App.js contents:', AppModule);
+                    throw new Error('App.js must export a default component. Found: ' + Object.keys(AppModule).join(', '));
+                }
                 
-                console.log('App rendered successfully!');
+                console.log('Step 3: Rendering app...');
+                
+                // Create root and render
+                const rootElement = document.getElementById('root');
+                if (!rootElement) {
+                    throw new Error('Cannot find #root element');
+                }
+                
+                const root = ReactDOM.createRoot(rootElement);
+                root.render(React.createElement(App));
+                
+                console.log('✅ App rendered successfully!');
                 
                 // Register service worker after app loads
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('./sw.js', { scope: './' })
-                        .then(registration => {
-                            console.log('Service Worker registered:', registration);
-                        })
-                        .catch(error => {
-                            console.warn('Service Worker registration failed:', error);
-                        });
+                    try {
+                        const registration = await navigator.serviceWorker.register('./sw.js');
+                        console.log('✅ Service Worker registered:', registration.scope);
+                    } catch (swError) {
+                        console.warn('⚠️ Service Worker registration failed:', swError);
+                    }
                 }
                 
             } catch (error) {
-                console.error('App initialization failed:', error);
+                console.error('❌ App loading failed:', error);
                 
                 // Show error to user
                 document.getElementById('root').innerHTML = `
                     <div class="error-screen">
-                        <div class="error-icon">⚠️</div>
                         <h2>Failed to Load App</h2>
-                        <p style="color: #a3a3a3;">${error.message}</p>
-                        <p style="color: #737373; font-size: 14px; margin-top: 20px;">
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p style="color: #a3a3a3; margin-top: 20px;">
                             Please check:<br>
-                            1. All .js files are deployed<br>
-                            2. Browser supports ES modules<br>
-                            3. Try refreshing the page
+                            1. All .js files are deployed to GitHub<br>
+                            2. App.js has "export default"<br>
+                            3. No syntax errors in console
                         </p>
-                        <button onclick="window.location.reload()" 
-                                style="margin-top: 30px; padding: 10px 20px; background: #8b5cf6; border: none; color: white; border-radius: 8px; cursor: pointer;">
-                            Retry
+                        <button class="retry-button" onclick="window.location.reload()">
+                            🔄 Retry Loading
                         </button>
+                        <div style="margin-top: 30px; font-size: 14px; color: #666;">
+                            <button onclick="testFiles()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; margin: 5px;">
+                                Test File Access
+                            </button>
+                            <button onclick="clearCache()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; margin: 5px;">
+                                Clear Cache
+                            </button>
+                        </div>
                     </div>
                 `;
             }
         }
         
-        // Start app initialization
-        window.addEventListener('DOMContentLoaded', initializeApp);
+        // Helper functions for debugging
+        window.testFiles = async function() {
+            console.log('📁 Testing file access...');
+            const files = ['./App.js', './index.js', './geminiService.js', './manifest.json'];
+            
+            for (const file of files) {
+                try {
+                    const response = await fetch(file);
+                    console.log(`${file}: ${response.status} ${response.statusText}`);
+                    if (response.ok) {
+                        const text = await response.text();
+                        console.log(`  First 100 chars: ${text.substring(0, 100)}...`);
+                    }
+                } catch (error) {
+                    console.error(`${file}: ${error.message}`);
+                }
+            }
+        };
         
-        // Fallback if DOMContentLoaded already fired
+        window.clearCache = function() {
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    cacheNames.forEach(cacheName => {
+                        caches.delete(cacheName);
+                        console.log('Deleted cache:', cacheName);
+                    });
+                });
+            }
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log('Cache cleared. Refreshing...');
+            setTimeout(() => window.location.reload(), 1000);
+        };
+        
+        // Start loading when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApp);
+            document.addEventListener('DOMContentLoaded', loadApp);
         } else {
-            initializeApp();
+            loadApp();
         }
+        
+        // Also test immediately in console
+        console.log('🌐 Testing network access...');
+        fetch('./App.js')
+            .then(r => r.text())
+            .then(text => {
+                console.log('App.js loaded, size:', text.length, 'chars');
+                console.log('Has default export?:', text.includes('export default'));
+                console.log('First 200 chars:', text.substring(0, 200));
+            })
+            .catch(err => console.error('Cannot load App.js:', err));
     </script>
-    
-    <!-- Fallback for no JavaScript -->
-    <noscript>
-        <div style="padding: 40px; text-align: center; color: white;">
-            <h2>JavaScript Required</h2>
-            <p>This application requires JavaScript to run.</p>
-        </div>
-    </noscript>
 </body>
 </html>
