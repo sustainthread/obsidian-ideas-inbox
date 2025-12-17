@@ -1,44 +1,45 @@
-import { GoogleGenAI, Type } from "@google/genai";
+// geminiService.js - Now calls YOUR secure proxy
+const PROXY_URL = 'https://your-username.github.io/obsidian-ideas-inbox/api'; // Change this
 
 export const enhanceNoteWithGemini = async (rawContent) => {
-  // Retrieve the key from localStorage where App.js stores it
-  const settings = JSON.parse(localStorage.getItem('obsidian-inbox-settings') || '{}');
-  const apiKey = settings.apiKey;
-
-  if (!apiKey) {
-    throw new Error("Missing API Key. Please add it in settings.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{
-      role: "user",
-      parts: [{
-        text: `Act as an Obsidian Note Architect. Transform the following raw thought into a structured markdown note.
-        Return ONLY a JSON object with:
-        - title: A creative, descriptive filename (no extension)
-        - content: The polished markdown body
-        - tags: Array of 3-5 relevant #tags (kebab-case)
-        
-        Raw Thought: ${rawContent}`
-      }]
-    }],
-    config: {
-      responseMimeType: "application/json",
-      responseJsonSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          content: { type: Type.STRING },
-          tags: { type: Type.ARRAY, items: { type: Type.STRING } }
-        },
-        required: ["title", "content", "tags"]
-      }
+  try {
+    if (!rawContent || rawContent.trim().length < 3) {
+      throw new Error("Note is too short. Please write a bit more.");
     }
-  });
 
-  // The SDK's response.text() is a helper that returns the stringified JSON
-  return JSON.parse(response.text);
+    console.log('Sending to secure proxy...');
+    
+    const response = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: rawContent })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Validate and clean the response
+    return {
+      title: result.title || 'Enhanced Note',
+      content: result.content || rawContent,
+      tags: Array.isArray(result.tags) ? result.tags : ['ai-enhanced', 'note']
+    };
+
+  } catch (error) {
+    console.error('Proxy service error:', error);
+    
+    // Fallback to local processing
+    console.log('Falling back to local processing');
+    return {
+      title: rawContent.split('\n')[0]?.slice(0, 50) || 'My Note',
+      content: rawContent,
+      tags: ['note', 'idea', 'local-fallback']
+    };
+  }
 };
