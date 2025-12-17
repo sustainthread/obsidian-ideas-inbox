@@ -1,17 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
 export const enhanceNoteWithGemini = async (rawContent) => {
-  if (!rawContent.trim()) throw new Error("Empty content");
-
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze the following raw note and return JSON:
-      1. title: catchy file name (no extension)
-      2. content: cleaned markdown formatting
-      3. tags: 3-5 relevant kebab-case tags starting with #
-      Note: ${rawContent}`,
+    contents: `Act as an Obsidian Note Architect. Transform the following raw thought into a structured markdown note.
+      Return ONLY a JSON object with:
+      - title: A creative, descriptive filename (no extension)
+      - content: The polished markdown body
+      - tags: Array of 3-5 relevant #tags (kebab-case)
+      
+      Raw Thought: ${rawContent}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
