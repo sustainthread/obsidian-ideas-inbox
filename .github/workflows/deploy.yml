@@ -1,0 +1,68 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Build
+        run: |
+          # Copy all files to build directory
+          mkdir -p ./_site
+          cp -r *.html *.js *.json ./_site/
+          
+          # Create API endpoint that uses the secret
+          cat > ./_site/api-proxy.js << 'EOF'
+          export default {
+            async fetch(request) {
+              const { content } = await request.json();
+              const apiKey = "${{ secrets.GEMINI_API_KEY }}";
+              
+              const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: content }] }]
+                  })
+                }
+              );
+              
+              return new Response(response.body, {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          }
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
