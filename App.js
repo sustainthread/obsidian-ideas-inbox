@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import htm from 'htm';
-import { Settings, Sparkles, Send, Copy, Check, ArrowLeft, Trash2, X, Save, FileText, Tag, Download } from 'lucide-react';
-
-// Import the actual service - you'll need to implement this
-import { enhanceNoteWithGemini } from './geminiService.js';
+// App.js - Fixed with ES module imports
+import React from 'https://esm.sh/react@18';
+import htm from 'https://esm.sh/htm@3.1.1';
+import { 
+  Settings, Sparkles, Send, Copy, Check, ArrowLeft, 
+  Trash2, X, Save, FileText, Tag, Download 
+} from 'https://esm.sh/lucide-react@0.263.1';
 
 const html = htm.bind(React.createElement);
 
@@ -19,18 +20,18 @@ const ViewState = {
 };
 
 export default function App() {
-  const [text, setText] = useState('');
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [viewState, setViewState] = useState(ViewState.EDITING);
-  const [enhancedData, setEnhancedData] = useState(null);
-  const [copyStatus, setCopyStatus] = useState('idle');
-  const [error, setError] = useState(null);
-  const textareaRef = useRef(null);
+  const [text, setText] = React.useState('');
+  const [settings, setSettings] = React.useState(DEFAULT_SETTINGS);
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [viewState, setViewState] = React.useState(ViewState.EDITING);
+  const [enhancedData, setEnhancedData] = React.useState(null);
+  const [copyStatus, setCopyStatus] = React.useState('idle');
+  const [error, setError] = React.useState(null);
+  const textareaRef = React.useRef(null);
 
   // Load saved data
-  useEffect(() => {
+  React.useEffect(() => {
     const saved = localStorage.getItem('obsidian-inbox-settings');
     if (saved) {
       try {
@@ -45,7 +46,7 @@ export default function App() {
   }, []);
 
   // Auto-save draft
-  useEffect(() => {
+  React.useEffect(() => {
     const saveDraft = () => {
       localStorage.setItem('obsidian-inbox-draft', text);
     };
@@ -71,14 +72,16 @@ export default function App() {
     setError(null);
     
     try {
-      console.log('Processing note with Gemini...');
-      const result = await enhanceNoteWithGemini(text);
+      console.log('Processing note...');
+      
+      // Import dynamically to avoid issues
+      const geminiModule = await import('./geminiService.js');
+      const result = await geminiModule.enhanceNoteWithGemini(text);
       
       if (!result || !result.content) {
-        throw new Error('Invalid response from Gemini service');
+        throw new Error('Invalid response from processing service');
       }
       
-      // Ensure enhanced data has required structure
       const enhancedNote = {
         title: result.title || 'Untitled Note',
         content: result.content || text,
@@ -89,12 +92,12 @@ export default function App() {
       setViewState(ViewState.PREVIEW);
       
     } catch (e) {
-      console.error('Gemini processing error:', e);
-      setError(e.message || 'Error connecting to Gemini. Please try again.');
+      console.error('Processing error:', e);
+      setError(e.message || 'Failed to process note');
       
-      // Fallback: use original text as enhanced data
+      // Fallback
       const fallbackData = {
-        title: 'Processed Note',
+        title: 'My Note',
         content: text,
         tags: ['note', 'manual']
       };
@@ -120,8 +123,7 @@ export default function App() {
       const fullContent = `${enhancedData.content}\n\n${tags}`;
       const fileName = enhancedData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       
-      // CORRECTED: Proper Obsidian URI format
-      // Format: obsidian://advanced-uri?vault=VAULT&filepath=FOLDER/FILE.md&data=CONTENT
+      // Correct Obsidian URI format
       const vault = encodeURIComponent(settings.vaultName);
       const folder = settings.folderPath.trim() || 'Inbox';
       const filePath = `${folder}/${fileName}.md`;
@@ -131,19 +133,12 @@ export default function App() {
       console.log('Opening Obsidian URI:', uri);
       
       // Try to open Obsidian
-      window.location.href = uri;
+      window.open(uri, '_blank');
       
-      // Fallback for desktop: offer download
+      // Show success message
       setTimeout(() => {
-        if (confirm('If Obsidian didn\'t open, would you like to download the note instead?')) {
-          const blob = new Blob([fullContent], { type: 'text/markdown' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${fileName}.md`;
-          a.click();
-        }
-      }, 1000);
+        alert(`Note saved to: ${folder}/${fileName}.md\n\nYou can also find it in your Obsidian vault.`);
+      }, 500);
       
     } catch (e) {
       console.error('Obsidian sync error:', e);
@@ -199,33 +194,30 @@ export default function App() {
   };
 
   return html`
-    <div className="flex flex-col h-screen max-w-2xl mx-auto bg-[#0a0a0a] text-white overflow-hidden relative selection:bg-purple-500/30">
-      
+    <div className="app-container">
       <!-- Error Banner -->
       ${error && html`
-        <div className="bg-red-900/30 border border-red-700 text-red-200 px-4 py-3 text-sm font-medium">
-          <div className="flex justify-between items-center">
+        <div className="error-banner">
+          <div className="error-content">
             <span>⚠️ ${error}</span>
-            <button onClick=${() => setError(null)} className="text-red-400 hover:text-white">
-              <${X} size={16} />
+            <button onClick=${() => setError(null)} className="error-close">
+              <${X} size=${16} />
             </button>
           </div>
         </div>
       `}
       
       <!-- Header -->
-      <header className="flex items-center justify-between px-6 py-5 border-b border-neutral-800 bg-black/40 backdrop-blur-xl z-30">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/20">
-            <${Send} size=${20} className="text-white -ml-0.5 mt-0.5" />
+      <header className="app-header">
+        <div className="header-left">
+          <div className="logo-icon">
+            <${Send} size=${20} />
           </div>
-          <h1 className="font-extrabold text-xl tracking-tight uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500">
-            IdeaInbox
-          </h1>
+          <h1 className="app-title">IdeaInbox</h1>
         </div>
         <button 
           onClick=${() => setIsSettingsOpen(true)} 
-          className="p-2.5 text-neutral-400 hover:text-white bg-neutral-900 rounded-full border border-neutral-800 transition-all active:scale-90"
+          className="settings-button"
           aria-label="Settings"
         >
           <${Settings} size=${22} />
@@ -233,9 +225,9 @@ export default function App() {
       </header>
 
       <!-- Main Content -->
-      <main className="flex-1 flex flex-col relative overflow-hidden">
+      <main className="app-main">
         ${viewState === ViewState.EDITING ? html`
-          <div className="flex-1 relative flex flex-col">
+          <div className="editor-container">
             <textarea 
               ref=${textareaRef}
               value=${text} 
@@ -245,52 +237,48 @@ export default function App() {
               }} 
               disabled=${isProcessing}
               placeholder="Jot down a thought, link, or raw idea..."
-              className="flex-1 bg-transparent text-xl p-8 resize-none outline-none leading-relaxed text-neutral-200 placeholder-neutral-800 font-medium"
+              className="note-textarea"
               aria-label="Note input"
             />
             
             ${isProcessing && html`
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-40">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
-                <p className="mt-4 text-purple-400 font-bold tracking-widest uppercase text-[10px]">
-                  Processing with AI...
-                </p>
+              <div className="processing-overlay">
+                <div className="processing-spinner"></div>
+                <p className="processing-text">Processing with AI...</p>
               </div>
             `}
           </div>
         ` : html`
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="preview-container">
             <button 
               onClick=${() => setViewState(ViewState.EDITING)} 
-              className="flex items-center gap-2 text-neutral-500 hover:text-purple-400 transition-all font-bold text-[10px] uppercase tracking-[0.2em]"
+              className="back-button"
             >
               <${ArrowLeft} size=${14} />
               <span>Return to Editor</span>
             </button>
             
-            <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-6 space-y-6 shadow-2xl">
-              <div className="flex items-start gap-4 border-b border-neutral-800 pb-4">
-                <div className="p-2.5 bg-purple-500/10 rounded-xl">
-                  <${FileText} className="text-purple-400" size=${24} />
+            <div className="note-preview">
+              <div className="preview-header">
+                <div className="preview-icon">
+                  <${FileText} size=${24} />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white leading-tight mb-2">
-                    ${enhancedData?.title || 'Untitled Note'}
-                  </h3>
-                  <p className="text-xs text-neutral-500 font-mono">
+                <div className="preview-title-container">
+                  <h3 className="preview-title">${enhancedData?.title || 'Untitled Note'}</h3>
+                  <p className="preview-path">
                     Will save to: ${settings.folderPath}/${enhancedData?.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'note'}.md
                   </p>
                 </div>
               </div>
               
-              <div className="text-neutral-300 whitespace-pre-wrap text-base leading-relaxed font-normal">
+              <div className="preview-content">
                 ${enhancedData?.content || 'No content'}
               </div>
               
               ${enhancedData?.tags && enhancedData.tags.length > 0 && html`
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="tags-container">
                   ${getFormattedTags().map(tag => html`
-                    <span key=${tag} className="text-[10px] font-bold uppercase tracking-wider text-purple-300 bg-purple-900/20 px-3 py-1.5 rounded-lg border border-purple-800/30 flex items-center gap-2">
+                    <span key=${tag} className="tag">
                       <${Tag} size=${10} /> ${tag}
                     </span>
                   `)}
@@ -302,13 +290,13 @@ export default function App() {
       </main>
 
       <!-- Footer -->
-      <footer className="p-6 border-t border-neutral-800 bg-black/60 backdrop-blur-2xl z-30">
+      <footer className="app-footer">
         ${viewState === ViewState.EDITING ? html`
-          <div className="flex gap-4">
+          <div className="editor-footer">
             <button 
               onClick=${handleClear} 
               disabled=${!text || isProcessing} 
-              className="p-4 rounded-2xl bg-neutral-900 text-neutral-500 border border-neutral-800 disabled:opacity-20 transition-all active:scale-90"
+              className="clear-button"
               aria-label="Clear note"
             >
               <${Trash2} size=${24} />
@@ -316,33 +304,32 @@ export default function App() {
             <button 
               onClick=${handleProcess} 
               disabled=${!text.trim() || isProcessing}
-              className="flex-1 flex items-center justify-center gap-3 py-5 rounded-2xl font-black text-sm bg-gradient-to-r from-purple-600 to-indigo-600 disabled:opacity-20 transition-all active:scale-[0.98] uppercase tracking-widest shadow-2xl shadow-purple-900/30"
+              className="process-button"
             >
               <${Sparkles} size=${20} />
               ${isProcessing ? 'Processing...' : 'Polish with AI'}
             </button>
           </div>
         ` : html`
-          <div className="flex flex-col gap-4">
+          <div className="preview-footer">
             <button 
               onClick=${handleSyncToObsidian} 
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-5 rounded-2xl font-black shadow-xl active:scale-[0.98] uppercase tracking-widest text-sm transition-all hover:bg-gray-100"
+              className="obsidian-button"
             >
               <img 
                 src="https://upload.wikimedia.org/wikipedia/commons/1/10/2023_Obsidian_logo.svg" 
-                className="w-6 h-6" 
+                className="obsidian-logo" 
                 alt="Obsidian Logo" 
               />
               Sync to Obsidian
             </button>
-            <div className="flex gap-4">
+            <div className="action-buttons">
               <button 
                 onClick=${handleCopy} 
-                className="flex-1 flex items-center justify-center gap-2 bg-neutral-900 text-white py-4 rounded-xl font-bold border border-neutral-800 transition-all active:scale-95 hover:bg-neutral-800"
+                className="copy-button"
               >
                 <${copyStatus === 'copied' ? Check : Copy} 
                   size=${18} 
-                  className=${copyStatus === 'copied' ? 'text-green-400' : ''} 
                 />
                 ${copyStatus === 'copied' ? 'Copied!' : 'Copy'}
               </button>
@@ -359,7 +346,7 @@ export default function App() {
                   a.download = `${fileName}.md`;
                   a.click();
                 }} 
-                className="flex-1 flex items-center justify-center gap-2 bg-neutral-900 text-white py-4 rounded-xl font-bold border border-neutral-800 transition-all active:scale-95 hover:bg-neutral-800"
+                className="download-button"
               >
                 <${Download} size=${18} /> Download .md
               </button>
@@ -370,54 +357,54 @@ export default function App() {
 
       <!-- Settings Modal -->
       ${isSettingsOpen && html`
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6 backdrop-blur-md">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-neutral-800">
-              <h2 className="text-lg font-black uppercase tracking-widest">Configuration</h2>
+        <div className="settings-modal">
+          <div className="settings-content">
+            <div className="settings-header">
+              <h2>Configuration</h2>
               <button 
                 onClick=${() => setIsSettingsOpen(false)} 
-                className="text-neutral-500 hover:text-white transition-all"
+                className="close-settings"
                 aria-label="Close settings"
               >
                 <${X} size=${24} />
               </button>
             </div>
-            <div className="p-8 space-y-8">
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-3">
+            <div className="settings-body">
+              <div className="setting-group">
+                <label className="setting-label">
                   Obsidian Vault Name
                 </label>
                 <input 
-                  className="w-full bg-[#0a0a0a] p-4 rounded-2xl border border-neutral-800 text-white outline-none focus:border-purple-500 transition-all font-medium" 
+                  className="setting-input" 
                   placeholder="e.g. Personal"
                   value=${settings.vaultName} 
                   onChange=${e => setSettings({...settings, vaultName: e.target.value})}
                   aria-label="Vault name"
                 />
-                <p className="text-xs text-neutral-600 mt-2">
+                <p className="setting-hint">
                   Must match exactly the name in Obsidian
                 </p>
               </div>
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-3">
+              <div className="setting-group">
+                <label className="setting-label">
                   Folder Path
                 </label>
                 <input 
-                  className="w-full bg-[#0a0a0a] p-4 rounded-2xl border border-neutral-800 text-white outline-none focus:border-purple-500 transition-all font-medium" 
+                  className="setting-input" 
                   placeholder="e.g. Inbox (leave empty for vault root)"
                   value=${settings.folderPath} 
                   onChange=${e => setSettings({...settings, folderPath: e.target.value})}
                   aria-label="Folder path"
                 />
-                <p className="text-xs text-neutral-600 mt-2">
+                <p className="setting-hint">
                   Folder will be created if it doesn't exist
                 </p>
               </div>
             </div>
-            <div className="p-6 bg-neutral-900/50">
+            <div className="settings-footer">
               <button 
                 onClick=${() => handleSaveSettings(settings)} 
-                className="w-full bg-purple-600 py-5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-xl shadow-purple-900/20 active:scale-95 transition-all hover:bg-purple-700"
+                className="save-settings-button"
               >
                 <${Save} size=${20} /> SAVE CHANGES
               </button>
@@ -428,3 +415,549 @@ export default function App() {
     </div>
   `;
 }
+
+// Add CSS directly to the component
+const styles = document.createElement('style');
+styles.textContent = `
+  /* Base styles */
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 42rem;
+    margin: 0 auto;
+    background-color: #0a0a0a;
+    color: white;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  /* Error Banner */
+  .error-banner {
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid #dc2626;
+    color: #fecaca;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .error-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .error-close {
+    background: none;
+    border: none;
+    color: #fca5a5;
+    cursor: pointer;
+    padding: 4px;
+  }
+  
+  .error-close:hover {
+    color: white;
+  }
+  
+  /* Header */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #262626;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(16px);
+  }
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .logo-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    background: linear-gradient(135deg, #8b5cf6, #4f46e5);
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 15px -3px rgba(88, 28, 135, 0.2);
+  }
+  
+  .app-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
+    font-style: italic;
+    background: linear-gradient(to right, white, #737373);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  
+  .settings-button {
+    padding: 10px;
+    color: #a3a3a3;
+    background-color: #171717;
+    border: 1px solid #262626;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .settings-button:hover {
+    color: white;
+  }
+  
+  .settings-button:active {
+    transform: scale(0.9);
+  }
+  
+  /* Main Content */
+  .app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Editor */
+  .editor-container {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .note-textarea {
+    flex: 1;
+    background: transparent;
+    color: #e5e5e5;
+    font-size: 1.25rem;
+    padding: 2rem;
+    resize: none;
+    outline: none;
+    border: none;
+    line-height: 1.75;
+    font-weight: 500;
+  }
+  
+  .note-textarea::placeholder {
+    color: #404040;
+  }
+  
+  .processing-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+  }
+  
+  .processing-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid rgba(139, 92, 246, 0.2);
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .processing-text {
+    margin-top: 1rem;
+    color: #8b5cf6;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 0.625rem;
+  }
+  
+  /* Preview */
+  .preview-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #737373;
+    font-weight: 700;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 0;
+  }
+  
+  .back-button:hover {
+    color: #8b5cf6;
+  }
+  
+  .note-preview {
+    background-color: rgba(38, 38, 38, 0.5);
+    border: 1px solid #262626;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+  
+  .preview-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    border-bottom: 1px solid #262626;
+    padding-bottom: 1rem;
+  }
+  
+  .preview-icon {
+    padding: 10px;
+    background-color: rgba(139, 92, 246, 0.1);
+    border-radius: 0.75rem;
+  }
+  
+  .preview-title-container {
+    flex: 1;
+  }
+  
+  .preview-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 0.5rem;
+  }
+  
+  .preview-path {
+    font-size: 0.75rem;
+    color: #737373;
+    font-family: monospace;
+  }
+  
+  .preview-content {
+    color: #d4d4d4;
+    white-space: pre-wrap;
+    line-height: 1.75;
+    font-size: 1rem;
+    padding: 1rem 0;
+  }
+  
+  .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+  }
+  
+  .tag {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #d8b4fe;
+    background-color: rgba(139, 92, 246, 0.1);
+    padding: 6px 12px;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  /* Footer */
+  .app-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #262626;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(24px);
+  }
+  
+  .editor-footer {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .clear-button {
+    padding: 1rem;
+    border-radius: 1rem;
+    background-color: #171717;
+    color: #737373;
+    border: 1px solid #262626;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .clear-button:disabled {
+    opacity: 0.2;
+  }
+  
+  .clear-button:active:not(:disabled) {
+    transform: scale(0.9);
+  }
+  
+  .process-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 1.25rem;
+    border-radius: 1rem;
+    font-weight: 800;
+    font-size: 0.875rem;
+    background: linear-gradient(to right, #8b5cf6, #4f46e5);
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    box-shadow: 0 20px 25px -5px rgba(139, 92, 246, 0.3);
+    transition: all 0.2s;
+  }
+  
+  .process-button:disabled {
+    opacity: 0.2;
+  }
+  
+  .process-button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  
+  .preview-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .obsidian-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background-color: white;
+    color: black;
+    padding: 1.25rem;
+    border-radius: 1rem;
+    font-weight: 800;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+  }
+  
+  .obsidian-button:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .obsidian-button:active {
+    transform: scale(0.98);
+  }
+  
+  .obsidian-logo {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .copy-button, .download-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: #171717;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    font-weight: 700;
+    border: 1px solid #262626;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .copy-button:hover, .download-button:hover {
+    background-color: #262626;
+  }
+  
+  .copy-button:active, .download-button:active {
+    transform: scale(0.95);
+  }
+  
+  /* Settings Modal */
+  .settings-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 1.5rem;
+    backdrop-filter: blur(12px);
+    z-index: 50;
+  }
+  
+  .settings-content {
+    background-color: #171717;
+    border: 1px solid #262626;
+    border-radius: 1.5rem;
+    width: 100%;
+    max-width: 28rem;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+  
+  .settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem;
+    border-bottom: 1px solid #262626;
+  }
+  
+  .settings-header h2 {
+    font-size: 1.125rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  
+  .close-settings {
+    color: #737373;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+  }
+  
+  .close-settings:hover {
+    color: white;
+  }
+  
+  .settings-body {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  
+  .setting-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .setting-label {
+    font-size: 0.625rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #737373;
+    margin-bottom: 0.75rem;
+  }
+  
+  .setting-input {
+    width: 100%;
+    background-color: #0a0a0a;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid #262626;
+    color: white;
+    outline: none;
+    font-weight: 500;
+    transition: border-color 0.2s;
+  }
+  
+  .setting-input:focus {
+    border-color: #8b5cf6;
+  }
+  
+  .setting-hint {
+    font-size: 0.75rem;
+    color: #737373;
+    margin-top: 0.5rem;
+  }
+  
+  .settings-footer {
+    padding: 1.5rem;
+    background-color: rgba(38, 38, 38, 0.5);
+  }
+  
+  .save-settings-button {
+    width: 100%;
+    background-color: #8b5cf6;
+    color: white;
+    padding: 1.25rem;
+    border-radius: 1rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.2);
+    transition: all 0.2s;
+  }
+  
+  .save-settings-button:hover {
+    background-color: #7c3aed;
+  }
+  
+  .save-settings-button:active {
+    transform: scale(0.95);
+  }
+  
+  /* Animations */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Responsive */
+  @media (max-width: 640px) {
+    .app-container {
+      max-width: 100%;
+    }
+    
+    .app-header {
+      padding: 1rem;
+    }
+    
+    .note-textarea {
+      padding: 1.5rem;
+      font-size: 1rem;
+    }
+    
+    .preview-container {
+      padding: 1rem;
+    }
+    
+    .app-footer {
+      padding: 1rem;
+    }
+  }
+`;
+
+// Inject styles when component mounts
+if (typeof document !== 'undefined') {
+  document.head.appendChild(styles);
