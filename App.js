@@ -5,7 +5,6 @@ import { enhanceNoteWithGemini } from './geminiService.js';
 
 const html = htm.bind(React.createElement);
 
-// --- App Settings ---
 const DEFAULT_SETTINGS = {
   vaultName: 'Main',
   folderPath: 'Inbox'
@@ -19,6 +18,7 @@ const ViewState = {
 export default function App() {
   const [text, setText] = useState('');
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [tempSettings, setTempSettings] = useState(DEFAULT_SETTINGS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [viewState, setViewState] = useState(ViewState.EDITING);
@@ -28,7 +28,11 @@ export default function App() {
 
   useEffect(() => {
     const saved = localStorage.getItem('obsidian-inbox-settings');
-    if (saved) setSettings(JSON.parse(saved));
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setSettings(parsed);
+      setTempSettings(parsed);
+    }
     const draft = localStorage.getItem('obsidian-inbox-draft');
     if (draft) setText(draft);
   }, []);
@@ -37,9 +41,9 @@ export default function App() {
     localStorage.setItem('obsidian-inbox-draft', text);
   }, [text]);
 
-  const handleSaveSettings = (s) => {
-    setSettings(s);
-    localStorage.setItem('obsidian-inbox-settings', JSON.stringify(s));
+  const handleSaveSettings = () => {
+    setSettings(tempSettings);
+    localStorage.setItem('obsidian-inbox-settings', JSON.stringify(tempSettings));
     setIsSettingsOpen(false);
   };
 
@@ -61,16 +65,17 @@ export default function App() {
     if (!enhancedData) return;
     const tags = enhancedData.tags.map(t => t.startsWith('#') ? t : '#' + t).join(' ');
     const fullContent = `${enhancedData.content}\n\n${tags}`;
-    const vault = encodeURIComponent(settings.vaultName);
-    const fileName = encodeURIComponent(enhancedData.title);
     
-    let path = fileName;
-    if (settings.folderPath.trim()) {
-      path = encodeURIComponent(`${settings.folderPath.trim().replace(/\/$/, '')}/${enhancedData.title}`);
-    }
+    const cleanFolder = settings.folderPath.trim().replace(/\/$/, '');
+    const fullRelativePath = cleanFolder ? `${cleanFolder}/${enhancedData.title}` : enhancedData.title;
 
-    const uri = `obsidian://new?vault=${vault}&file=${path}&content=${encodeURIComponent(fullContent)}`;
-    window.location.href = uri;
+    const params = new URLSearchParams({
+      vault: settings.vaultName,
+      file: fullRelativePath,
+      content: fullContent
+    });
+
+    window.location.href = `obsidian://new?${params.toString()}`;
   };
 
   const handleCopy = () => {
@@ -93,20 +98,18 @@ export default function App() {
   return html`
     <div className="flex flex-col h-screen max-w-2xl mx-auto bg-[#0a0a0a] text-white overflow-hidden relative selection:bg-purple-500/30">
       
-      <!-- Header -->
       <header className="flex items-center justify-between px-6 py-5 border-b border-neutral-800 bg-black/40 backdrop-blur-xl z-30">
         <div className="flex items-center gap-3">
-           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/20 animate-float">
+           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/20">
              <${Send} size=${20} className="text-white -ml-0.5 mt-0.5" />
            </div>
            <h1 className="font-extrabold text-xl tracking-tight uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500">IdeaInbox</h1>
         </div>
-        <button onClick=${() => setIsSettingsOpen(true)} className="p-2.5 text-neutral-400 hover:text-white bg-neutral-900 rounded-full border border-neutral-800 transition-all active:scale-90">
+        <button onClick=${() => { setTempSettings(settings); setIsSettingsOpen(true); }} className="p-2.5 text-neutral-400 hover:text-white bg-neutral-900 rounded-full border border-neutral-800 transition-all active:scale-90">
           <${Settings} size=${22} />
         </button>
       </header>
 
-      <!-- Main Content -->
       <main className="flex-1 flex flex-col relative overflow-hidden">
         ${viewState === ViewState.EDITING ? html`
           <div className="flex-1 relative flex flex-col">
@@ -115,13 +118,13 @@ export default function App() {
               value=${text} 
               onChange=${e => setText(e.target.value)} 
               disabled=${isProcessing}
-              placeholder="Jot down a thought, link, or raw idea..."
+              placeholder="Jot down a thought..."
               className="flex-1 bg-transparent text-xl p-8 resize-none outline-none leading-relaxed text-neutral-200 placeholder-neutral-800 font-medium" />
             
             ${isProcessing && html`
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-40">
                 <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
-                <p className="mt-4 text-purple-400 font-bold tracking-widest uppercase text-[10px]">Processing Brilliance</p>
+                <p className="mt-4 text-purple-400 font-bold tracking-widest uppercase text-[10px]">Processing...</p>
               </div>
             `}
           </div>
@@ -152,7 +155,6 @@ export default function App() {
         `}
       </main>
 
-      <!-- Footer -->
       <footer className="p-6 border-t border-neutral-800 bg-black/60 backdrop-blur-2xl z-30 pb-safe">
         ${viewState === ViewState.EDITING ? html`
           <div className="flex gap-4">
@@ -192,7 +194,6 @@ export default function App() {
         `}
       </footer>
 
-      <!-- Settings Modal -->
       ${isSettingsOpen && html`
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6 backdrop-blur-md">
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -205,17 +206,17 @@ export default function App() {
                 <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-3">Vault Name</label>
                 <input className="w-full bg-[#0a0a0a] p-4 rounded-2xl border border-neutral-800 text-white outline-none focus:border-purple-500 transition-all font-medium" 
                   placeholder="e.g. Personal"
-                  value=${settings.vaultName} onChange=${e => setSettings({...settings, vaultName: e.target.value})} />
+                  value=${tempSettings.vaultName} onChange=${e => setTempSettings({...tempSettings, vaultName: e.target.value})} />
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-3">Folder Path</label>
                 <input className="w-full bg-[#0a0a0a] p-4 rounded-2xl border border-neutral-800 text-white outline-none focus:border-purple-500 transition-all font-medium" 
                   placeholder="e.g. Inbox"
-                  value=${settings.folderPath} onChange=${e => setSettings({...settings, folderPath: e.target.value})} />
+                  value=${tempSettings.folderPath} onChange=${e => setTempSettings({...tempSettings, folderPath: e.target.value})} />
               </div>
             </div>
             <div className="p-6 bg-neutral-900/50">
-              <button onClick=${() => handleSaveSettings(settings)} className="w-full bg-purple-600 py-5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-xl shadow-purple-900/20 active:scale-95 transition-all">
+              <button onClick=${handleSaveSettings} className="w-full bg-purple-600 py-5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-xl shadow-purple-900/20 active:scale-95 transition-all">
                 <${Save} size=${20} /> SAVE CHANGES
               </button>
             </div>
