@@ -1,11 +1,11 @@
 {
-  "name": "Idea Inbox",
-  "short_name": "Ideas",
-  "description": "Capture and enhance ideas for Obsidian.",
+  "name": "Obsidian Idea Inbox",
+  "short_name": "IdeaInbox",
+  "description": "Capture and polish ideas with AI for Obsidian",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#111111",
-  "theme_color": "#111111",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/5968/5968292.png",
