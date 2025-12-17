@@ -1,90 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import htm from 'htm';
-import { Settings, Sparkles, Send, Download, Copy, Check, ArrowLeft, Trash2, X, Save, FileText, Tag } from 'lucide-react';
+import { Settings, Sparkles, Send, Copy, Check, ArrowLeft, Trash2, X, Save, FileText, Tag, Download } from 'lucide-react';
 import { enhanceNoteWithGemini } from './geminiService.js';
 
 const html = htm.bind(React.createElement);
 
-// --- Sub-Components ---
-
-function SettingsModal({ isOpen, onClose, settings, onSave }) {
-  const [local, setLocal] = useState(settings);
-  useEffect(() => setLocal(settings), [settings]);
-  if (!isOpen) return null;
-
-  return html`
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
-          <h2 className="text-lg font-semibold text-white">Settings</h2>
-          <button onClick=${onClose} className="text-neutral-400"><${X} size=${20} /></button>
-        </div>
-        <div className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm text-neutral-400 mb-2 font-medium">Obsidian Vault Name</label>
-            <input className="w-full bg-neutral-800 p-3 rounded-lg border border-neutral-700 text-white outline-none focus:border-purple-500" 
-              value=${local.vaultName} onChange=${e => setLocal({...local, vaultName: e.target.value})} />
-          </div>
-          <div>
-            <label className="block text-sm text-neutral-400 mb-2 font-medium">Folder Path (Optional)</label>
-            <input className="w-full bg-neutral-800 p-3 rounded-lg border border-neutral-700 text-white outline-none focus:border-purple-500" 
-              placeholder="e.g. Inbox"
-              value=${local.folderPath} onChange=${e => setLocal({...local, folderPath: e.target.value})} />
-          </div>
-        </div>
-        <div className="p-4">
-          <button onClick=${() => { onSave(local); onClose(); }} className="w-full bg-purple-600 py-3.5 rounded-xl font-bold text-white flex items-center justify-center gap-2">
-            <${Save} size=${18} /> Save Config
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function IdeaEditor({ value, onChange, isProcessing }) {
-  const textareaRef = useRef(null);
-  useEffect(() => { if (textareaRef.current) textareaRef.current.focus(); }, []);
-
-  return html`
-    <div className="flex-1 relative">
-      <textarea ref=${textareaRef} value=${value} onChange=${e => onChange(e.target.value)} disabled=${isProcessing}
-        placeholder="What's on your mind?..."
-        className="w-full h-full bg-transparent text-lg p-6 resize-none outline-none leading-relaxed text-neutral-200 placeholder-neutral-700" />
-      ${isProcessing && html`
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px]">
-          <div className="bg-neutral-800 px-6 py-3 rounded-full border border-neutral-700 animate-pulse text-purple-400 font-medium shadow-2xl">
-            Gemini is refining...
-          </div>
-        </div>
-      `}
-    </div>
-  `;
-}
-
-function PreviewCard({ data }) {
-  return html`
-    <div className="w-full bg-neutral-800/40 border border-neutral-700/50 rounded-2xl p-6 space-y-4">
-      <div className="flex items-start gap-3 border-b border-neutral-700/50 pb-4">
-        <${FileText} className="text-purple-400 mt-1" size=${22} />
-        <h3 className="text-xl font-bold text-white tracking-tight">${data.title}</h3>
-      </div>
-      <div className="text-neutral-300 whitespace-pre-wrap text-base leading-relaxed font-normal">${data.content}</div>
-      <div className="flex flex-wrap gap-2 pt-2">
-        ${data.tags.map(tag => html`
-          <span className="text-xs font-semibold text-purple-300 bg-purple-900/30 px-3 py-1.5 rounded-full border border-purple-800/50 flex items-center gap-1.5">
-            <${Tag} size=${12} /> ${tag.startsWith('#') ? tag : '#' + tag}
-          </span>
-        `)}
-      </div>
-    </div>
-  `;
-}
-
-// --- Main App Component ---
-
+// --- App Settings ---
 const DEFAULT_SETTINGS = {
-  vaultName: 'MyVault',
+  vaultName: 'Main',
   folderPath: 'Inbox'
 };
 
@@ -101,21 +24,23 @@ export default function App() {
   const [viewState, setViewState] = useState(ViewState.EDITING);
   const [enhancedData, setEnhancedData] = useState(null);
   const [copyStatus, setCopyStatus] = useState('idle');
+  const textareaRef = useRef(null);
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('obsidian-inbox-settings');
-    if (savedSettings) setSettings(JSON.parse(savedSettings));
-    const savedDraft = localStorage.getItem('obsidian-inbox-draft');
-    if (savedDraft) setText(savedDraft);
+    const saved = localStorage.getItem('obsidian-inbox-settings');
+    if (saved) setSettings(JSON.parse(saved));
+    const draft = localStorage.getItem('obsidian-inbox-draft');
+    if (draft) setText(draft);
   }, []);
 
   useEffect(() => {
     localStorage.setItem('obsidian-inbox-draft', text);
   }, [text]);
 
-  const handleSaveSettings = (newSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem('obsidian-inbox-settings', JSON.stringify(newSettings));
+  const handleSaveSettings = (s) => {
+    setSettings(s);
+    localStorage.setItem('obsidian-inbox-settings', JSON.stringify(s));
+    setIsSettingsOpen(false);
   };
 
   const handleProcess = async () => {
@@ -126,94 +51,177 @@ export default function App() {
       setEnhancedData(result);
       setViewState(ViewState.PREVIEW);
     } catch (e) {
-      alert("Failed to process note.");
+      alert("Error connecting to Gemini. Please try again.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleOpenInObsidian = () => {
+  const handleSyncToObsidian = () => {
     if (!enhancedData) return;
-    const fileName = encodeURIComponent(enhancedData.title);
-    const tagLine = enhancedData.tags.map(t => t.startsWith('#') ? t : '#' + t).join(' ');
-    const content = encodeURIComponent(`${enhancedData.content}\n\n${tagLine}`);
+    const tags = enhancedData.tags.map(t => t.startsWith('#') ? t : '#' + t).join(' ');
+    const fullContent = `${enhancedData.content}\n\n${tags}`;
     const vault = encodeURIComponent(settings.vaultName);
+    const fileName = encodeURIComponent(enhancedData.title);
+    
     let path = fileName;
     if (settings.folderPath.trim()) {
       path = encodeURIComponent(`${settings.folderPath.trim().replace(/\/$/, '')}/${enhancedData.title}`);
     }
-    window.location.href = `obsidian://new?vault=${vault}&file=${path}&content=${content}`;
+
+    const uri = `obsidian://new?vault=${vault}&file=${path}&content=${encodeURIComponent(fullContent)}`;
+    window.location.href = uri;
   };
 
   const handleCopy = () => {
-    if (!enhancedData) return;
-    const tagLine = enhancedData.tags.map(t => t.startsWith('#') ? t : '#' + t).join(' ');
-    const full = `${enhancedData.content}\n\n${tagLine}`;
+    const tags = enhancedData.tags.map(t => t.startsWith('#') ? t : '#' + t).join(' ');
+    const full = `${enhancedData.content}\n\n${tags}`;
     navigator.clipboard.writeText(full).then(() => {
       setCopyStatus('copied');
       setTimeout(() => setCopyStatus('idle'), 2000);
     });
   };
 
+  const handleClear = () => {
+    if (text && confirm("Clear current draft?")) {
+      setText('');
+      setEnhancedData(null);
+      setViewState(ViewState.EDITING);
+    }
+  };
+
   return html`
-    <div className="flex flex-col h-screen max-w-2xl mx-auto bg-[#111] text-white overflow-hidden shadow-2xl relative">
-      <header className="flex items-center justify-between p-4 border-b border-neutral-800 bg-neutral-900/50 backdrop-blur-md z-20">
-        <div className="flex items-center gap-2.5">
-           <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/20">
+    <div className="flex flex-col h-screen max-w-2xl mx-auto bg-[#0a0a0a] text-white overflow-hidden relative selection:bg-purple-500/30">
+      
+      <!-- Header -->
+      <header className="flex items-center justify-between px-6 py-5 border-b border-neutral-800 bg-black/40 backdrop-blur-xl z-30">
+        <div className="flex items-center gap-3">
+           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/20 animate-float">
              <${Send} size=${20} className="text-white -ml-0.5 mt-0.5" />
            </div>
-           <h1 className="font-extrabold text-xl tracking-tight">IdeaInbox</h1>
+           <h1 className="font-extrabold text-xl tracking-tight uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500">IdeaInbox</h1>
         </div>
-        <div className="flex items-center gap-2">
-           ${text.length > 0 && viewState === ViewState.EDITING && html`
-              <button onClick=${() => setText('')} className="p-2 text-neutral-500 hover:text-red-400 transition-colors">
-                <${Trash2} size=${22} />
-              </button>
-           `}
-           <button onClick=${() => setIsSettingsOpen(true)} className="p-2.5 text-neutral-400 hover:text-white transition-colors bg-neutral-800 rounded-full">
-             <${Settings} size=${22} />
-           </button>
-        </div>
+        <button onClick=${() => setIsSettingsOpen(true)} className="p-2.5 text-neutral-400 hover:text-white bg-neutral-900 rounded-full border border-neutral-800 transition-all active:scale-90">
+          <${Settings} size=${22} />
+        </button>
       </header>
 
+      <!-- Main Content -->
       <main className="flex-1 flex flex-col relative overflow-hidden">
         ${viewState === ViewState.EDITING ? html`
-          <${IdeaEditor} value=${text} onChange=${setText} isProcessing=${isProcessing} />
+          <div className="flex-1 relative flex flex-col">
+            <textarea 
+              ref=${textareaRef}
+              value=${text} 
+              onChange=${e => setText(e.target.value)} 
+              disabled=${isProcessing}
+              placeholder="Jot down a thought, link, or raw idea..."
+              className="flex-1 bg-transparent text-xl p-8 resize-none outline-none leading-relaxed text-neutral-200 placeholder-neutral-800 font-medium" />
+            
+            ${isProcessing && html`
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-40">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                <p className="mt-4 text-purple-400 font-bold tracking-widest uppercase text-[10px]">Processing Brilliance</p>
+              </div>
+            `}
+          </div>
         ` : html`
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
-             <button onClick=${() => setViewState(ViewState.EDITING)} className="flex items-center gap-2 text-neutral-400 hover:text-purple-400 transition-colors">
-                <${ArrowLeft} size=${18} />
-                <span className="text-sm font-medium">Back to editor</span>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+             <button onClick=${() => setViewState(ViewState.EDITING)} className="flex items-center gap-2 text-neutral-500 hover:text-purple-400 transition-all font-bold text-[10px] uppercase tracking-[0.2em]">
+                <${ArrowLeft} size=${14} />
+                <span>Return to Editor</span>
              </button>
-             ${enhancedData && html`<${PreviewCard} data=${enhancedData} />`}
+             
+             <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-6 space-y-6 shadow-2xl">
+                <div className="flex items-start gap-4 border-b border-neutral-800 pb-4">
+                  <div className="p-2.5 bg-purple-500/10 rounded-xl">
+                    <${FileText} className="text-purple-400" size=${24} />
+                  </div>
+                  <h3 className="text-xl font-bold text-white leading-tight">${enhancedData?.title}</h3>
+                </div>
+                <div className="text-neutral-300 whitespace-pre-wrap text-base leading-relaxed font-normal">${enhancedData?.content}</div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  ${enhancedData?.tags.map(tag => html`
+                    <span key=${tag} className="text-[10px] font-bold uppercase tracking-wider text-purple-300 bg-purple-900/20 px-3 py-1.5 rounded-lg border border-purple-800/30 flex items-center gap-2">
+                      <${Tag} size=${10} /> ${tag.startsWith('#') ? tag : '#' + tag}
+                    </span>
+                  `)}
+                </div>
+             </div>
           </div>
         `}
       </main>
 
-      <div className="p-5 border-t border-neutral-800 bg-neutral-900/80 backdrop-blur-md z-20 pb-safe">
+      <!-- Footer -->
+      <footer className="p-6 border-t border-neutral-800 bg-black/60 backdrop-blur-2xl z-30 pb-safe">
         ${viewState === ViewState.EDITING ? html`
-          <button onClick=${handleProcess} disabled=${!text.trim() || isProcessing}
-            className="w-full flex items-center justify-center gap-2 py-4.5 rounded-2xl font-bold text-lg bg-gradient-to-r from-purple-600 to-indigo-600 disabled:opacity-50 transition-all shadow-xl shadow-purple-900/20 active:scale-[0.98]">
-            <${Sparkles} size=${22} className=${isProcessing ? 'animate-pulse' : ''} />
-            ${isProcessing ? 'Thinking...' : 'Process with Gemini'}
-          </button>
-        ` : html`
-          <div className="flex flex-col gap-3">
-            <button onClick=${handleOpenInObsidian} className="w-full flex items-center justify-center gap-3 bg-[#7A3EE8] hover:bg-[#8D5AE8] text-white py-4 rounded-2xl font-bold shadow-lg shadow-purple-900/30 transition-colors">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/1/10/2023_Obsidian_logo.svg" className="w-6 h-6" alt="Obsidian" />
-              Save to Obsidian
+          <div className="flex gap-4">
+            <button onClick=${handleClear} disabled=${!text || isProcessing} className="p-4 rounded-2xl bg-neutral-900 text-neutral-500 border border-neutral-800 disabled:opacity-20 transition-all active:scale-90">
+              <${Trash2} size=${24} />
             </button>
-            <div className="flex gap-3">
-              <button onClick=${handleCopy} className="flex-1 flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white py-3.5 rounded-2xl font-semibold transition-colors">
+            <button onClick=${handleProcess} disabled=${!text.trim() || isProcessing}
+              className="flex-1 flex items-center justify-center gap-3 py-5 rounded-2xl font-black text-sm bg-gradient-to-r from-purple-600 to-indigo-600 disabled:opacity-20 transition-all active:scale-[0.98] uppercase tracking-widest shadow-2xl shadow-purple-900/30">
+              <${Sparkles} size=${20} />
+              ${isProcessing ? 'Thinking...' : 'Polish with AI'}
+            </button>
+          </div>
+        ` : html`
+          <div className="flex flex-col gap-4">
+            <button onClick=${handleSyncToObsidian} className="w-full flex items-center justify-center gap-3 bg-white text-black py-5 rounded-2xl font-black shadow-xl active:scale-[0.98] uppercase tracking-widest text-sm transition-all">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/1/10/2023_Obsidian_logo.svg" className="w-6 h-6" alt="" />
+              Sync to Obsidian
+            </button>
+            <div className="flex gap-4">
+              <button onClick=${handleCopy} className="flex-1 flex items-center justify-center gap-2 bg-neutral-900 text-white py-4 rounded-xl font-bold border border-neutral-800 transition-all active:scale-95">
                 <${copyStatus === 'copied' ? Check : Copy} size=${18} className=${copyStatus === 'copied' ? 'text-green-400' : ''} />
                 ${copyStatus === 'copied' ? 'Copied' : 'Copy'}
+              </button>
+              <button onClick=${() => {
+                const tags = enhancedData.tags.map(t => t.startsWith('#') ? t : '#' + t).join(' ');
+                const blob = new Blob([`${enhancedData.content}\n\n${tags}`], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${enhancedData.title}.md`;
+                a.click();
+              }} className="flex-1 flex items-center justify-center gap-2 bg-neutral-900 text-white py-4 rounded-xl font-bold border border-neutral-800 transition-all active:scale-95">
+                <${Download} size=${18} /> .md
               </button>
             </div>
           </div>
         `}
-      </div>
+      </footer>
 
-      <${SettingsModal} isOpen=${isSettingsOpen} onClose=${() => setIsSettingsOpen(false)} settings=${settings} onSave=${handleSaveSettings} />
+      <!-- Settings Modal -->
+      ${isSettingsOpen && html`
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-6 backdrop-blur-md">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-800">
+              <h2 className="text-lg font-black uppercase tracking-widest">Configuration</h2>
+              <button onClick=${() => setIsSettingsOpen(false)} className="text-neutral-500 hover:text-white transition-all"><${X} size=${24} /></button>
+            </div>
+            <div className="p-8 space-y-8">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-3">Vault Name</label>
+                <input className="w-full bg-[#0a0a0a] p-4 rounded-2xl border border-neutral-800 text-white outline-none focus:border-purple-500 transition-all font-medium" 
+                  placeholder="e.g. Personal"
+                  value=${settings.vaultName} onChange=${e => setSettings({...settings, vaultName: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-3">Folder Path</label>
+                <input className="w-full bg-[#0a0a0a] p-4 rounded-2xl border border-neutral-800 text-white outline-none focus:border-purple-500 transition-all font-medium" 
+                  placeholder="e.g. Inbox"
+                  value=${settings.folderPath} onChange=${e => setSettings({...settings, folderPath: e.target.value})} />
+              </div>
+            </div>
+            <div className="p-6 bg-neutral-900/50">
+              <button onClick=${() => handleSaveSettings(settings)} className="w-full bg-purple-600 py-5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-xl shadow-purple-900/20 active:scale-95 transition-all">
+                <${Save} size=${20} /> SAVE CHANGES
+              </button>
+            </div>
+          </div>
+        </div>
+      `}
     </div>
   `;
 }
