@@ -17,9 +17,18 @@
     },
     {
       "src": "https://cdn-icons-png.flaticon.com/512/5968/5968292.png",
-      "sizes": "192x192",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Idea",
+      "short_name": "New",
+      "description": "Open the editor to capture a new idea",
+      "url": "/",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/5968/5968292.png", "sizes": "192x192" }]
     }
   ]
 }
