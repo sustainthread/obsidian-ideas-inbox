@@ -1,33 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Idea Inbox</title>
-    <meta name="theme-color" content="#111111" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="manifest" href="manifest.json" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-      body { font-family: 'Inter', sans-serif; background-color: #111; color: #e5e5e5; overscroll-behavior-y: contain; }
-      .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-    </style>
-    <script type="importmap">
-    {
-      "imports": {
-        "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-        "react-dom/": "https://esm.sh/react-dom@^19.0.0/",
-        "lucide-react": "https://esm.sh/lucide-react@^0.460.0",
-        "react/": "https://esm.sh/react@^19.0.0/",
-        "react": "https://esm.sh/react@^19.0.0"
-      }
-    }
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
-  </body>
-</html>
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: ["main"]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm install
+      - run: npm run build
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
