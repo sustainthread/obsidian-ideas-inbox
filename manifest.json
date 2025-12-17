@@ -2,8 +2,10 @@
   "name": "Obsidian Idea Inbox",
   "short_name": "IdeaInbox",
   "description": "Capture and polish ideas with AI for Obsidian",
-  "start_url": "./index.html",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "icons": [
@@ -11,7 +13,13 @@
       "src": "https://cdn-icons-png.flaticon.com/512/5968/5968292.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5968/5968292.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
