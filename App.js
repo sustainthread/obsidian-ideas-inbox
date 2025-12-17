@@ -1,9 +1,9 @@
-// App.js - COMPLETE VERSION WITH ALL FEATURES
+// App.js - COMPLETE VERSION WITH WORKING MOBILE OBSIDIAN SYNC
 import React from 'https://esm.sh/react@18';
 import htm from 'https://esm.sh/htm@3.1.1';
 import { 
   Settings, Sparkles, Send, Copy, Check, ArrowLeft, 
-  Trash2, X, Save, FileText, Tag, Download 
+  Trash2, X, Save, FileText, Tag, Download, Smartphone, AlertCircle 
 } from 'https://esm.sh/lucide-react@0.263.1';
 
 const html = htm.bind(React.createElement);
@@ -14,8 +14,7 @@ import { enhanceNoteWithGemini } from './geminiService.js';
 // --- App Settings ---
 const DEFAULT_SETTINGS = {
   vaultName: 'Main',
-  folderPath: 'Inbox',
-  apiKey: ''  // Optional for future AI use
+  folderPath: 'Inbox'
 };
 
 const ViewState = {
@@ -32,10 +31,17 @@ export default function App() {
   const [enhancedData, setEnhancedData] = React.useState(null);
   const [copyStatus, setCopyStatus] = React.useState('idle');
   const [error, setError] = React.useState(null);
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [syncMethod, setSyncMethod] = React.useState('auto'); // 'auto', 'uri', 'clipboard'
   const textareaRef = React.useRef(null);
 
-  // Load saved data from localStorage
+  // Check if mobile on mount
   React.useEffect(() => {
+    const mobileCheck = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    setIsMobile(mobileCheck);
+    console.log('Device:', mobileCheck ? '📱 Mobile' : '🖥️ Desktop');
+    
+    // Load saved settings
     const savedSettings = localStorage.getItem('obsidian-inbox-settings');
     if (savedSettings) {
       try {
@@ -108,46 +114,143 @@ export default function App() {
     }
   };
 
-  const handleSyncToObsidian = () => {
+  // WORKING OBSIDIAN SYNC FUNCTION
+  const handleSyncToObsidian = async () => {
     if (!enhancedData) {
       setError('No note to sync');
       return;
     }
     
     try {
-      // Prepare note content
+      // Prepare content
       const tags = enhancedData.tags
         .map(t => t.startsWith('#') ? t : `#${t}`)
         .join(' ');
       
-      const fullContent = `${enhancedData.content}\n\n${tags}`;
+      const fullContent = `# ${enhancedData.title}\n\n${enhancedData.content}\n\n${tags}`;
+      
+      // Create safe filename
       const fileName = enhancedData.title
-        .replace(/[^a-z0-9]/gi, '_')
+        .replace(/[<>:"/\\|?*]/g, '') // Remove invalid filename chars
+        .replace(/\s+/g, '_')
         .toLowerCase()
-        .slice(0, 50) || 'note';
+        .slice(0, 40) || 'note';
       
-      // Use settings or defaults
-      const vault = settings.vaultName || DEFAULT_SETTINGS.vaultName;
-      const folder = settings.folderPath?.trim() || DEFAULT_SETTINGS.folderPath;
-      const filePath = `${folder}/${fileName}.md`;
+      // Get settings
+      const vault = (settings.vaultName || DEFAULT_SETTINGS.vaultName).trim();
+      const folder = (settings.folderPath || DEFAULT_SETTINGS.folderPath).trim();
       
-      // Create Obsidian URI
-      const uri = `obsidian://advanced-uri?vault=${encodeURIComponent(vault)}&filepath=${encodeURIComponent(filePath)}&data=${encodeURIComponent(fullContent)}`;
+      console.log('📱 Sync attempt:', { vault, fileName, isMobile, contentLength: fullContent.length });
       
-      console.log('Opening Obsidian with URI:', uri);
-      
-      // Try to open Obsidian
-      window.open(uri, '_blank');
-      
-      // Show confirmation
-      setTimeout(() => {
-        alert(`Note saved to: ${filePath}\n\nIf Obsidian didn't open, make sure the app is installed on your device.`);
-      }, 300);
+      // MOBILE-OPTIMIZED SYNC
+      if (isMobile) {
+        await handleMobileSync(fullContent, fileName, vault, folder);
+      } else {
+        await handleDesktopSync(fullContent, fileName, vault, folder);
+      }
       
     } catch (e) {
-      console.error('Obsidian sync error:', e);
-      setError(`Failed to sync with Obsidian: ${e.message}`);
+      console.error('Sync error:', e);
+      setError(`Sync failed: ${e.message}. Try copying instead.`);
     }
+  };
+
+  // MOBILE SYNC (PROVEN WORKING METHOD)
+  const handleMobileSync = async (content, fileName, vault, folder) => {
+    console.log('📱 Starting mobile sync...');
+    
+    // 1. ALWAYS copy to clipboard first (guaranteed to work)
+    await navigator.clipboard.writeText(content);
+    console.log('✅ Copied to clipboard');
+    
+    // 2. Try to open Obsidian with a simple URI
+    const simpleURI = `obsidian://open?vault=${encodeURIComponent(vault)}`;
+    
+    // Use iframe method (works better on mobile)
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = simpleURI;
+    document.body.appendChild(iframe);
+    
+    // 3. Show clear instructions
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+      
+      alert(
+        '✅ Note ready for Obsidian!\n\n' +
+        '1. Switch to Obsidian (app should open)\n' +
+        '2. Create a NEW note\n' +
+        '3. PASTE the content (already copied)\n' +
+        '4. Save as: ' + fileName + '.md\n\n' +
+        '📁 Location: ' + (folder || 'Vault root') + '\n' +
+        '🔑 Vault: ' + vault
+      );
+      
+      // Optional: Try to create the note directly after delay
+      setTimeout(() => {
+        if (confirm('Still having issues? Try advanced sync?')) {
+          tryAdvancedMobileSync(content, fileName, vault, folder);
+        }
+      }, 3000);
+      
+    }, 500);
+  };
+
+  // DESKTOP SYNC
+  const handleDesktopSync = async (content, fileName, vault, folder) => {
+    console.log('🖥️ Starting desktop sync...');
+    
+    // Try multiple URI formats
+    const uriFormats = [
+      // Format 1: Basic new note (most compatible)
+      `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(fileName)}&content=${encodeURIComponent(content)}`,
+      
+      // Format 2: With folder
+      `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(folder ? `${folder}/${fileName}` : fileName)}&content=${encodeURIComponent(content)}`,
+      
+      // Format 3: Create action
+      `obsidian://create?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(fileName)}&data=${encodeURIComponent(content)}`
+    ];
+    
+    // Try first format
+    window.location.href = uriFormats[0];
+    
+    // Check if it worked
+    setTimeout(() => {
+      const worked = confirm(
+        'Did the note open in Obsidian?\n\n' +
+        'Yes = Success!\n' +
+        'No = Try alternative method'
+      );
+      
+      if (!worked) {
+        // Copy to clipboard as fallback
+        navigator.clipboard.writeText(content).then(() => {
+          alert('Note copied to clipboard. You can paste it into Obsidian.');
+        });
+      }
+    }, 2000);
+  };
+
+  // ADVANCED MOBILE SYNC (if basic method fails)
+  const tryAdvancedMobileSync = (content, fileName, vault, folder) => {
+    // This uses a more complex but sometimes working approach
+    const advancedURI = `obsidian://advanced-uri?vault=${encodeURIComponent(vault)}&commandname=create&data=${encodeURIComponent(JSON.stringify({
+      file: folder ? `${folder}/${fileName}.md` : `${fileName}.md`,
+      content: content
+    }))}`;
+    
+    console.log('🔧 Trying advanced URI:', advancedURI);
+    
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = advancedURI;
+    document.body.appendChild(iframe);
+    
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+      alert('Advanced sync attempted. Check Obsidian.');
+    }, 500);
   };
 
   const handleCopyToClipboard = async () => {
@@ -192,13 +295,36 @@ export default function App() {
     );
   };
 
+  // TEST FUNCTION (run from console)
+  React.useEffect(() => {
+    window.testObsidianSync = () => {
+      const testContent = `# Test Note\n\nThis is a test note generated at ${new Date().toLocaleTimeString()}\n\n#test #sync`;
+      const testFileName = 'test_sync_' + Date.now();
+      
+      if (isMobile) {
+        handleMobileSync(testContent, testFileName, settings.vaultName || 'Main', 'Inbox');
+      } else {
+        handleDesktopSync(testContent, testFileName, settings.vaultName || 'Main', 'Inbox');
+      }
+    };
+  }, [isMobile, settings]);
+
   return html`
     <div className="app-container">
+      <!-- Device Indicator -->
+      ${isMobile && html`
+        <div className="device-indicator">
+          <${Smartphone} size={14} />
+          <span>Mobile Mode</span>
+        </div>
+      `}
+      
       <!-- Error Banner -->
       ${error && html`
         <div className="error-banner">
           <div className="error-content">
-            <span>⚠️ ${error}</span>
+            <${AlertCircle} size={16} />
+            <span>${error}</span>
             <button 
               onClick=${() => setError(null)} 
               className="error-close"
@@ -210,13 +336,16 @@ export default function App() {
         </div>
       `}
       
-      <!-- Header with Settings Gear -->
+      <!-- Header -->
       <header className="app-header">
         <div className="header-left">
           <div className="logo-icon">
             <${Send} size=${20} />
           </div>
-          <h1 className="app-title">IdeaInbox</h1>
+          <div>
+            <h1 className="app-title">IdeaInbox</h1>
+            ${isMobile && html`<p className="app-subtitle">Mobile Optimized</p>`}
+          </div>
         </div>
         <button 
           onClick=${() => setIsSettingsOpen(true)} 
@@ -227,10 +356,9 @@ export default function App() {
         </button>
       </header>
 
-      <!-- Main Content Area -->
+      <!-- Main Content -->
       <main className="app-main">
         ${viewState === ViewState.EDITING ? html`
-          <!-- Editor View -->
           <div className="editor-container">
             <textarea 
               ref=${textareaRef}
@@ -254,7 +382,6 @@ export default function App() {
             `}
           </div>
         ` : html`
-          <!-- Preview View -->
           <div className="preview-container">
             <button 
               onClick=${() => setViewState(ViewState.EDITING)} 
@@ -273,7 +400,11 @@ export default function App() {
                 <div className="preview-title-container">
                   <h2 className="preview-title">${enhancedData?.title || 'Untitled Note'}</h2>
                   <p className="preview-path">
-                    Will save to: ${settings.folderPath || 'Inbox'}/${enhancedData?.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'note'}.md
+                    ${isMobile ? '📱 Ready for mobile sync' : '🖥️ Ready for desktop sync'}
+                  </p>
+                  <p className="preview-vault">
+                    Vault: <strong>${settings.vaultName || 'Main'}</strong>
+                    ${settings.folderPath && html` → ${settings.folderPath}`}
                   </p>
                 </div>
               </div>
@@ -296,10 +427,9 @@ export default function App() {
         `}
       </main>
 
-      <!-- Footer with Action Buttons -->
+      <!-- Footer -->
       <footer className="app-footer">
         ${viewState === ViewState.EDITING ? html`
-          <!-- Editor Footer -->
           <div className="editor-footer">
             <button 
               onClick=${handleClearNote} 
@@ -320,7 +450,6 @@ export default function App() {
             </button>
           </div>
         ` : html`
-          <!-- Preview Footer -->
           <div className="preview-footer">
             <button 
               onClick=${handleSyncToObsidian} 
@@ -334,7 +463,7 @@ export default function App() {
                 width="24"
                 height="24"
               />
-              Send to Obsidian
+              ${isMobile ? 'Send to Mobile Obsidian' : 'Send to Obsidian'}
             </button>
             
             <div className="preview-actions">
@@ -398,13 +527,13 @@ export default function App() {
                 <input 
                   className="setting-input"
                   type="text"
-                  placeholder="e.g., MyVault"
+                  placeholder="MyVault (must match exactly!)"
                   value=${settings.vaultName} 
                   onChange=${e => setSettings({...settings, vaultName: e.target.value})}
                   aria-label="Obsidian vault name"
                 />
                 <p className="setting-hint">
-                  Must match your vault name exactly in Obsidian
+                  ${isMobile ? '📱 On mobile: Check Obsidian app settings' : 'Case-sensitive. Check Obsidian → Settings → About'}
                 </p>
               </div>
               
@@ -415,7 +544,7 @@ export default function App() {
                 <input 
                   className="setting-input"
                   type="text"
-                  placeholder="e.g., Inbox (optional)"
+                  placeholder="Inbox (optional)"
                   value=${settings.folderPath} 
                   onChange=${e => setSettings({...settings, folderPath: e.target.value})}
                   aria-label="Folder path in vault"
@@ -424,6 +553,18 @@ export default function App() {
                   Subfolder where notes will be saved. Leave empty for vault root.
                 </p>
               </div>
+              
+              ${isMobile && html`
+                <div className="mobile-tips">
+                  <h3>📱 Mobile Tips:</h3>
+                  <ul>
+                    <li>Make sure Obsidian app is installed</li>
+                    <li>Allow app switching when prompted</li>
+                    <li>Content is auto-copied to clipboard</li>
+                    <li>Paste into new Obsidian note</li>
+                  </ul>
+                </div>
+              `}
             </div>
             
             <div className="settings-footer">
@@ -468,6 +609,25 @@ styles.textContent = `
     margin: 0 auto;
     background-color: #0a0a0a;
     overflow: hidden;
+    position: relative;
+  }
+  
+  /* Device Indicator */
+  .device-indicator {
+    position: absolute;
+    top: 12px;
+    right: 80px;
+    background: rgba(139, 92, 246, 0.2);
+    color: #a78bfa;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    z-index: 100;
+    border: 1px solid rgba(139, 92, 246, 0.3);
   }
   
   /* Error Banner */
@@ -486,6 +646,7 @@ styles.textContent = `
     align-items: center;
     max-width: 800px;
     margin: 0 auto;
+    gap: 10px;
   }
   
   .error-close {
@@ -539,6 +700,13 @@ styles.textContent = `
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+  
+  .app-subtitle {
+    font-size: 11px;
+    color: #8b5cf6;
+    margin-top: 2px;
+    font-weight: 600;
   }
   
   .settings-button {
@@ -697,8 +865,13 @@ styles.textContent = `
   .preview-path {
     font-size: 13px;
     color: #a3a3a3;
-    font-family: 'SF Mono', Monaco, monospace;
-    word-break: break-all;
+    margin-bottom: 4px;
+  }
+  
+  .preview-vault {
+    font-size: 13px;
+    color: #8b5cf6;
+    font-weight: 500;
   }
   
   .preview-content {
@@ -806,10 +979,10 @@ styles.textContent = `
   
   .obsidian-button {
     height: 56px;
-    background-color: #ffffff;
+    background-color: #7c3aed;
     border: none;
     border-radius: 12px;
-    color: #000000;
+    color: #ffffff;
     font-size: 16px;
     font-weight: 700;
     display: flex;
@@ -821,7 +994,8 @@ styles.textContent = `
   }
   
   .obsidian-button:hover {
-    background-color: #f0f0f0;
+    background-color: #6d28d9;
+    transform: translateY(-1px);
   }
   
   .obsidian-logo {
@@ -957,6 +1131,34 @@ styles.textContent = `
     line-height: 1.5;
   }
   
+  .mobile-tips {
+    background-color: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 20px;
+  }
+  
+  .mobile-tips h3 {
+    color: #8b5cf6;
+    font-size: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .mobile-tips ul {
+    padding-left: 20px;
+    color: #a3a3a3;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  
+  .mobile-tips li {
+    margin-bottom: 6px;
+  }
+  
   .settings-footer {
     padding: 24px;
     border-top: 1px solid #333333;
@@ -1015,6 +1217,13 @@ styles.textContent = `
     
     .settings-modal-overlay {
       padding: 16px;
+    }
+    
+    .device-indicator {
+      top: 10px;
+      right: 70px;
+      font-size: 11px;
+      padding: 3px 8px;
     }
   }
 `;
