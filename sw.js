@@ -1,13 +1,11 @@
-const CACHE_NAME = 'idea-inbox-v2';
+const CACHE_NAME = 'idea-inbox-v3';
 const ASSETS = [
   './',
   './index.html',
   './index.js',
   './App.js',
-  './services/geminiService.js',
-  './components/SettingsModal.js',
-  './components/IdeaEditor.js',
-  './components/PreviewCard.js'
+  './geminiService.js',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
