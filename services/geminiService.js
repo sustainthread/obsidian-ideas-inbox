@@ -1,13 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { NoteData } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-export const enhanceNoteWithGemini = async (rawContent: string): Promise<NoteData> => {
+export const enhanceNoteWithGemini = async (rawContent) => {
+  if (!rawContent.trim()) throw new Error("Empty content");
+
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze this idea and return JSON with: title, content (markdown), and 3 tags. 
-    Idea: ${rawContent}`,
+    contents: `Analyze the following raw note and return JSON:
+      1. title: catchy file name
+      2. content: cleaned markdown
+      3. tags: 3-5 relevant kebab-case tags
+      Note: ${rawContent}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -21,5 +25,6 @@ export const enhanceNoteWithGemini = async (rawContent: string): Promise<NoteDat
       }
     }
   });
+
   return JSON.parse(response.text);
 };
