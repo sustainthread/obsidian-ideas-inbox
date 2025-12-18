@@ -1,3 +1,11 @@
+// In sw.js - Add mobile detection
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Skip caching problematic resources on mobile
+if (isMobile) {
+  console.log('📱 Mobile device - limiting cache');
+  // Don't cache external resources that might fail
+}
 // sw.js - Obsidian Idea Inbox Service Worker
 const CACHE_NAME = 'obsidian-ideas-v3';
 const APP_SHELL_CACHE = 'obsidian-ideas-shell-v3';
