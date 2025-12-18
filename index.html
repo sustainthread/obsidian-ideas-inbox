@@ -2,62 +2,111 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0a">
     <title>Obsidian Idea Inbox</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     
-    <!-- iOS Support -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- iOS Touch Icons -->
+    <link rel="apple-touch-icon" href="icon-192.png">
     
+    <!-- Critical Mobile CSS -->
     <style>
-        /* Simple loading screen */
-        body, html {
+        /* Reset for mobile */
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        html, body {
             height: 100%;
+            width: 100%;
+            overflow: hidden;
             background-color: #0a0a0a;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
         #root {
             height: 100%;
+            width: 100%;
+            overflow: hidden;
         }
         
-        .loading {
+        /* Loading screen for mobile */
+        .loading-screen {
+            height: 100vh;
+            width: 100vw;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            color: #8b5cf6;
             text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
         }
         
-        .spinner {
+        .loading-spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid rgba(139, 92, 246, 0.3);
+            border: 3px solid rgba(139, 92, 246, 0.3);
             border-top-color: #8b5cf6;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
         }
         
+        .loading-text {
+            color: #8b5cf6;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .loading-subtext {
+            color: #a3a3a3;
+            font-size: 14px;
+            max-width: 300px;
+            line-height: 1.4;
+        }
+        
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
         
+        /* Error screen */
         .error-screen {
-            padding: 40px;
+            padding: 30px;
             text-align: center;
-            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #0a0a0a;
         }
         
-        .error-screen h2 {
+        .error-title {
             color: #ef4444;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .error-message {
+            color: #a3a3a3;
+            font-size: 14px;
+            margin-bottom: 25px;
+            max-width: 300px;
+            line-height: 1.5;
         }
         
         .retry-button {
@@ -67,156 +116,188 @@
             border: none;
             border-radius: 8px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 20px;
+            margin: 10px;
+        }
+        
+        .debug-button {
+            padding: 8px 16px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
         }
     </style>
 </head>
 <body>
-    <!-- React mount point -->
+    <!-- Simple mount point - no complex HTML here -->
     <div id="root">
-        <div class="loading">
-            <div class="spinner"></div>
-            <h2>Loading Obsidian Idea Inbox...</h2>
-            <p>Please wait while the app loads</p>
+        <div class="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading Idea Inbox...</div>
+            <div class="loading-subtext">Optimized for mobile</div>
         </div>
     </div>
     
-    <!-- Simple, reliable app loader -->
-    <script type="module">
-        console.log('🚀 Starting app loader...');
+    <!-- Mobile-optimized script loading -->
+    <script>
+        // Mobile feature detection
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        console.log('📱 Mobile detected:', isMobile);
         
-        async function loadApp() {
+        // Load app with mobile optimizations
+        async function loadMobileApp() {
             try {
-                console.log('Step 1: Loading React...');
+                console.log('Starting mobile app load...');
                 
-                // Load React and ReactDOM from esm.sh
-                const React = await import('https://esm.sh/react@18');
-                const ReactDOM = await import('https://esm.sh/react-dom@18/client');
-                
-                console.log('Step 2: Loading App component...');
-                
-                // Load App.js - IMPORTANT: Use .default
-                let AppModule;
-                try {
-                    AppModule = await import('./App.js');
-                } catch (importError) {
-                    console.error('Failed to import App.js:', importError);
-                    throw new Error('App.js not found or has syntax errors');
+                // Clear any problematic caches on mobile
+                if ('caches' in window && isMobile) {
+                    try {
+                        const cacheNames = await caches.keys();
+                        for (const cacheName of cacheNames) {
+                            await caches.delete(cacheName);
+                        }
+                        console.log('Cleared caches for mobile');
+                    } catch (e) {
+                        console.log('Could not clear caches:', e);
+                    }
                 }
                 
-                // Get the default export
-                const App = AppModule.default;
+                // Check if ES modules are supported
+                if (typeof Promise.allSettled === 'undefined') {
+                    throw new Error('Your browser is too old for this app');
+                }
+                
+                // Load React from CDN with mobile fallback
+                const [React, ReactDOM, htm, AppModule] = await Promise.allSettled([
+                    import('https://esm.sh/react@18'),
+                    import('https://esm.sh/react-dom@18/client'),
+                    import('https://esm.sh/htm@3.1.1'),
+                    import('./App.js')
+                ]);
+                
+                // Check for failures
+                if (React.status === 'rejected') throw new Error('Failed to load React');
+                if (ReactDOM.status === 'rejected') throw new Error('Failed to load ReactDOM');
+                if (htm.status === 'rejected') throw new Error('Failed to load HTML library');
+                if (AppModule.status === 'rejected') throw new Error('Failed to load App.js - check file exists');
+                
+                // Get the actual modules
+                const ReactLib = React.value;
+                const ReactDOMLib = ReactDOM.value;
+                const htmLib = htm.value;
+                const App = AppModule.value.default || AppModule.value;
                 
                 if (!App) {
-                    console.error('App.js contents:', AppModule);
-                    throw new Error('App.js must export a default component. Found: ' + Object.keys(AppModule).join(', '));
+                    throw new Error('App.js does not export a default component');
                 }
                 
-                console.log('Step 3: Rendering app...');
+                console.log('All modules loaded, rendering app...');
                 
                 // Create root and render
                 const rootElement = document.getElementById('root');
-                if (!rootElement) {
-                    throw new Error('Cannot find #root element');
-                }
+                const html = htmLib.default.bind(ReactLib.createElement);
+                const root = ReactDOMLib.default.createRoot(rootElement);
                 
-                const root = ReactDOM.createRoot(rootElement);
-                root.render(React.createElement(App));
+                root.render(html`<${App} />`);
                 
-                console.log('✅ App rendered successfully!');
+                console.log('✅ Mobile app rendered successfully!');
                 
-                // Register service worker after app loads
-                if ('serviceWorker' in navigator) {
+                // Register service worker (optional)
+                if ('serviceWorker' in navigator && !isMobile) {
+                    // On mobile, skip service worker or register with caution
                     try {
-                        const registration = await navigator.serviceWorker.register('./sw.js');
-                        console.log('✅ Service Worker registered:', registration.scope);
+                        const registration = await navigator.serviceWorker.register('./sw.js', {
+                            updateViaCache: 'none'
+                        });
+                        console.log('Service Worker registered:', registration.scope);
                     } catch (swError) {
-                        console.warn('⚠️ Service Worker registration failed:', swError);
+                        console.warn('Service Worker failed:', swError);
                     }
                 }
                 
             } catch (error) {
-                console.error('❌ App loading failed:', error);
+                console.error('❌ Mobile app load failed:', error);
                 
-                // Show error to user
+                // Show user-friendly error
                 document.getElementById('root').innerHTML = `
                     <div class="error-screen">
-                        <h2>Failed to Load App</h2>
-                        <p><strong>Error:</strong> ${error.message}</p>
-                        <p style="color: #a3a3a3; margin-top: 20px;">
-                            Please check:<br>
-                            1. All .js files are deployed to GitHub<br>
-                            2. App.js has "export default"<br>
-                            3. No syntax errors in console
-                        </p>
-                        <button class="retry-button" onclick="window.location.reload()">
-                            🔄 Retry Loading
+                        <div class="error-title">Failed to Load App</div>
+                        <div class="error-message">${error.message}</div>
+                        <button class="retry-button" onclick="location.reload()">
+                            🔄 Retry
                         </button>
-                        <div style="margin-top: 30px; font-size: 14px; color: #666;">
-                            <button onclick="testFiles()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; margin: 5px;">
-                                Test File Access
-                            </button>
-                            <button onclick="clearCache()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; margin: 5px;">
-                                Clear Cache
-                            </button>
-                        </div>
+                        <button class="debug-button" onclick="testMobileSetup()">
+                            Test Setup
+                        </button>
+                        <button class="debug-button" onclick="clearMobileCache()">
+                            Clear Cache
+                        </button>
                     </div>
                 `;
             }
         }
         
-        // Helper functions for debugging
-        window.testFiles = async function() {
-            console.log('📁 Testing file access...');
-            const files = ['./App.js', './index.js', './geminiService.js', './manifest.json'];
+        // Mobile debugging functions
+        window.testMobileSetup = async function() {
+            console.log('Testing mobile setup...');
+            const tests = [
+                { name: 'App.js', url: './App.js' },
+                { name: 'React CDN', url: 'https://esm.sh/react@18' },
+                { name: 'Service Worker', url: './sw.js' }
+            ];
             
-            for (const file of files) {
+            for (const test of tests) {
                 try {
-                    const response = await fetch(file);
-                    console.log(`${file}: ${response.status} ${response.statusText}`);
-                    if (response.ok) {
-                        const text = await response.text();
-                        console.log(`  First 100 chars: ${text.substring(0, 100)}...`);
-                    }
+                    const response = await fetch(test.url);
+                    console.log(`${test.name}: ${response.status} ${response.statusText}`);
                 } catch (error) {
-                    console.error(`${file}: ${error.message}`);
+                    console.error(`${test.name}: ${error.message}`);
                 }
             }
         };
         
-        window.clearCache = function() {
+        window.clearMobileCache = function() {
             if ('caches' in window) {
-                caches.keys().then(cacheNames => {
-                    cacheNames.forEach(cacheName => {
-                        caches.delete(cacheName);
-                        console.log('Deleted cache:', cacheName);
-                    });
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                    console.log('Caches cleared');
                 });
             }
             localStorage.clear();
             sessionStorage.clear();
-            console.log('Cache cleared. Refreshing...');
-            setTimeout(() => window.location.reload(), 1000);
+            alert('Cache cleared. Reloading...');
+            setTimeout(() => location.reload(), 500);
         };
         
         // Start loading when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadApp);
+            document.addEventListener('DOMContentLoaded', loadMobileApp);
         } else {
-            loadApp();
+            loadMobileApp();
         }
         
-        // Also test immediately in console
-        console.log('🌐 Testing network access...');
-        fetch('./App.js')
-            .then(r => r.text())
-            .then(text => {
-                console.log('App.js loaded, size:', text.length, 'chars');
-                console.log('Has default export?:', text.includes('export default'));
-                console.log('First 200 chars:', text.substring(0, 200));
-            })
-            .catch(err => console.error('Cannot load App.js:', err));
+        // Prevent pinch-to-zoom on mobile (optional)
+        document.addEventListener('touchmove', function(event) {
+            if (event.scale !== 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Prevent double-tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
     </script>
 </body>
 </html>
